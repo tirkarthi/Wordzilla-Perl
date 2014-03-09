@@ -7,7 +7,7 @@ Version v0.1 :
 
 Installation :
 
-  At the moment the app supports only Linux with Perl.
+  At the moment the app supports only GNU/Linux with Perl.
 
   Its a Perl script that requires DBI , DBD::SQLite and preferably SQLite3 or SQLite. 
 
@@ -33,7 +33,7 @@ Installation :
 
         sudo apt-get install sqlite3
   
-  package manager (apt-get) might vary between the Operating Systems.
+  package manager (apt-get) might vary between distributions.
 
 Database :
 
