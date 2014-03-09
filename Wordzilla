@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use DBI;
+
+chomp( my $user = qx'echo $USER' );
+my $db_file = "/home/$user/Wordzilla"; # Change the location here
+my $dbh = DBI->connect( "dbi:SQLite:database=$db_file", "", "" );
+
+sub dictionary {
+    my $word = shift;
+    $word = lc($word);
+    my $char = substr( $word, 0, 1 );
+    my $sth = $dbh->prepare("SELECT * from $char where word = '$word';");
+    $sth->execute;
+    my @row;
+    my ( $meaning_count, $count ) = ( 0, 0 );
+    $meaning_count++ while ( @row = $sth->fetchrow_array );
+    $sth->execute;
+
+    if ( $meaning_count != 0 ) {
+        if ( $meaning_count == 1 ) {
+            print "\n$word has $meaning_count meaning.\n\n";
+        }
+        else {
+            print "\n$word has $meaning_count meanings.\n\n";
+        }
+        while ( @row = $sth->fetchrow_array ) {
+            print "$row[1] \n", "$row[2]\n\n";
+            last;
+        }
+        if ( $meaning_count > 2 ) {
+            print "View all meanings ( Y / N ) : ";
+            my $choice = <STDIN>;
+            if ( $choice =~ m/Y/i ) {
+                $sth->execute;
+                while ( @row = $sth->fetchrow_array ) {
+                    print "$row[1] \n", "$row[2]\n\n";
+                }
+            }
+            elsif ( $choice =~ m/N/i ) {
+                print "\nThank you.\n";
+            }
+            else {
+                print "\nInvalid choice.\n";
+            }
+        }
+    }
+    else {
+        print "No words found.\n";
+    }
+}
+
+if ( @ARGV == 0 ) {
+    print "Enter your word : \n";
+    my $word = <STDIN>;
+    if ( defined $word && length($word) != 0 ) {
+        chomp($word);
+        $word =~ s/^\s+//gs;
+        $word =~ s/\s+$//gs;
+        dictionary($word);
+    }
+    else {
+        print "\nPlease enter a word\n";
+    }
+}
+else {
+    chomp( my $word = shift @ARGV );
+    $word =~ s/^\s+//gs;
+    $word =~ s/\s+$//gs;
+    if ( $word !~ m/\s+/ and length($word) != 0 ) {
+        dictionary($word);
+    }
+    else {
+        print "Please enter a word\n";
+    }
+}
+print "\n", "*" x 15, " Powered by Perl , Wikitonary and SQLite ", "*" x 15, "\n";
