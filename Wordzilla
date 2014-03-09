@@ -4,16 +4,15 @@ use strict;
 use warnings;
 use DBI;
 
-chomp( my $user = qx'echo $USER' );
-my $db_file = "/home/$user/Wordzilla"; # Change the location here
+my $db_file = "$ENV{HOME}/Wordzilla";
 my $dbh = DBI->connect( "dbi:SQLite:database=$db_file", "", "" );
 
 sub dictionary {
     my $word = shift;
     $word = lc($word);
     my $char = substr( $word, 0, 1 );
-    my $sth = $dbh->prepare("SELECT * from $char where word = '$word';");
-    $sth->execute;
+    my $sth = $dbh->prepare("SELECT * from $char where word = ? ;");
+    $sth->execute($word);
     my @row;
     my ( $meaning_count, $count ) = ( 0, 0 );
     $meaning_count++ while ( @row = $sth->fetchrow_array );
@@ -77,3 +76,4 @@ else {
     }
 }
 print "\n", "*" x 15, " Powered by Perl , Wikitonary and SQLite ", "*" x 15, "\n";
+print "\n", 'Feedback : tir.karthi@gmail.com', "\n";
