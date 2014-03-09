@@ -19,9 +19,9 @@ Perl modules :
 
 Installation :
 
-  cpan DBI
-  
-  cpan DBD::SQLite
+        cpan DBI
+        
+        cpan DBD::SQLite
 
   You can also use cpanm or other means to install the modules.
 
@@ -31,7 +31,7 @@ SQLite :
 
 Installation :
 
-  sudo apt-get install sqlite3
+        sudo apt-get install sqlite3
   
   package manager (apt-get) might vary between the Operating Systems.
 
@@ -45,17 +45,17 @@ Add the Perl script to $PATH:
 
   From the location of the script add it to the path to use it like a command.
   
-  echo $PATH;
+        echo $PATH;
   
   select a path preferably /usr/local/bin.
   
-  sudo cp Wordzilla /usr/local/bin
+        sudo cp Wordzilla /usr/local/bin
   
 How to use the app :
 
   If you have added the script to your path then execute the command as follows
   
-  Wordzilla <your_word> <enter>
+        Wordzilla <your_word> <enter>
   
   Replace <your_word> with the word whose meaning is to be found and press enter.
   
