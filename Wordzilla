@@ -3,9 +3,28 @@
 use strict;
 use warnings;
 use DBI;
+use Getopt::Long;
+use Term::ANSIColor;
+use Text::Wrap;
+
+# Set the database location to be in home folder and initialise the SQLite configuration
 
 my $db_file = "$ENV{HOME}/Wordzilla";
 my $dbh = DBI->connect( "dbi:SQLite:database=$db_file", "", "" );
+my ($meanings_required, $part_of_speech_option);
+$Text::Wrap::columns = 80;
+
+# Command line switches
+# -m - Number of meanings to be displayed
+# -p - Meanings for the particular part of speech
+
+GetOptions(
+    "m=i" => \$meanings_required,
+    "p=s" => \$part_of_speech_option
+    );
+
+# Search for the word from the database and display the meaning.
+# The first character of the word is taken as the table name.
 
 sub dictionary {
     my $word = shift;
@@ -14,66 +33,88 @@ sub dictionary {
     my $sth = $dbh->prepare("SELECT * from $char where word = ? ;");
     $sth->execute($word);
     my @row;
-    my ( $meaning_count, $count ) = ( 0, 0 );
+    my $meaning_count = 0;
     $meaning_count++ while ( @row = $sth->fetchrow_array );
     $sth->execute;
-
     if ( $meaning_count != 0 ) {
-        if ( $meaning_count == 1 ) {
-            print "\n$word has $meaning_count meaning.\n\n";
-        }
-        else {
-            print "\n$word has $meaning_count meanings.\n\n";
-        }
-        while ( @row = $sth->fetchrow_array ) {
-            print "$row[1] \n", "$row[2]\n\n";
-            last;
-        }
-        if ( $meaning_count > 2 ) {
-            print "View all meanings ( Y / N ) : ";
-            my $choice = <STDIN>;
-            if ( $choice =~ m/Y/i ) {
-                $sth->execute;
-                while ( @row = $sth->fetchrow_array ) {
-                    print "$row[1] \n", "$row[2]\n\n";
-                }
-            }
-            elsif ( $choice =~ m/N/i ) {
-                print "\nThank you.\n";
-            }
-            else {
-                print "\nInvalid choice.\n";
-            }
-        }
+	if(defined($meanings_required)) {
+	    while ( @row = $sth->fetchrow_array and ($meanings_required != 0)) {
+		$meanings_required--;
+		print_part_of_speech_and_meaning(@row[1,2]);
+	    }
+	    print "$word has $meaning_count meanings\n";
+	    return 1;
+	}
+	else {
+	    while ( @row = $sth->fetchrow_array) {
+		print_part_of_speech_and_meaning(@row[1,2]);		
+	    }
+	    print "$word has $meaning_count meanings\n";
+	    return 1;	
+	}
     }
     else {
-        print "No words found.\n";
+	print "No words found.\n";
     }
 }
 
-if ( @ARGV == 0 ) {
-    print "Enter your word : \n";
-    my $word = <STDIN>;
-    if ( defined $word && length($word) != 0 ) {
-        chomp($word);
-        $word =~ s/^\s+//gs;
-        $word =~ s/\s+$//gs;
-        dictionary($word);
+# If the -p switch is set then the word and meaning are displayed if they match the given part of speech.
+sub print_part_of_speech_and_meaning() {
+    my ($part_of_speech, $meaning) = @_;
+    if(defined($part_of_speech_option)){
+	if ($part_of_speech =~ /$part_of_speech_option/i){
+	    print_part_of_speech($part_of_speech);
+	    print_meaning($meaning);
+	}
+    }
+    else{
+	print_part_of_speech($part_of_speech);
+	print_meaning($meaning);
+    }
+}
+
+# Print the part of speech in red color.
+sub print_part_of_speech{
+    my $part_of_speech = shift @_;
+    print color('red');
+    print "$part_of_speech \n";
+}
+
+# Print the meaning in the green color.
+sub print_meaning{
+    my $meaning = shift @_;
+    print color('green');
+    print wrap("\t","\t","$meaning");
+    print "\n\n";
+    print color('reset');
+}
+
+# Validate if its a word with its length and regex.
+sub check_word{
+    my ($word) = @_;
+    return (defined $word and length($word) != 0 and $word=~/^[a-z]+$/i);
+}
+
+# Check if the @ARGV contains the word or prompt for the word.
+if ( @ARGV) {
+    chomp(my $word = $ARGV[-1] );
+    $word =~ s/^\s+|\s+$//gs;
+    if (check_word($word)) {
+	    dictionary($word);
     }
     else {
-        print "\nPlease enter a word\n";
+	    print "Please enter a valid word\n";
     }
 }
 else {
-    chomp( my $word = shift @ARGV );
-    $word =~ s/^\s+//gs;
-    $word =~ s/\s+$//gs;
-    if ( $word !~ m/\s+/ and length($word) != 0 ) {
-        dictionary($word);
+    print "Enter your word : \n";
+    my $word = <STDIN>;
+    chomp($word);
+    $word =~ s/^\s+|\s+$//gs;
+    if (check_word($word)) {
+	    dictionary($word);
     }
     else {
-        print "Please enter a word\n";
+	    print "\nPlease enter a valid word\n";
     }
 }
-print "\n", "*" x 15, " Powered by Perl , Wikitonary and SQLite ", "*" x 15, "\n";
-print "\n", 'Feedback : tir.karthi@gmail.com', "\n";
