@@ -3,118 +3,207 @@
 use strict;
 use warnings;
 use DBI;
-use Getopt::Long;
+use Getopt::Long qw(:config ignore_case pass_through);
 use Term::ANSIColor;
 use Text::Wrap;
+use Pod::Usage;
 
-# Set the database location to be in home folder and initialise the SQLite configuration
 
+# Set the DB location and connection parameters
 my $db_file = "$ENV{HOME}/Wordzilla";
 my $dbh = DBI->connect( "dbi:SQLite:database=$db_file", "", "" );
-my ($meanings_required, $part_of_speech_option);
+my ( $meanings_required, $part_of_speech_option, $color_required, $help, $man );
 $Text::Wrap::columns = 80;
-
-# Command line switches
-# -m - Number of meanings to be displayed
-# -p - Meanings for the particular part of speech
 
 GetOptions(
     "m=i" => \$meanings_required,
-    "p=s" => \$part_of_speech_option
-    );
-
-# Search for the word from the database and display the meaning.
-# The first character of the word is taken as the table name.
+    "p=s" => \$part_of_speech_option,
+    "c!"  => \$color_required,
+		'help|?' => \$help,
+		'man!' => \$man
+);
 
 sub dictionary {
     my $word = shift;
     $word = lc($word);
     my $char = substr( $word, 0, 1 );
-    my $sth = $dbh->prepare("SELECT * from $char where word = ? ;");
-    $sth->execute($word);
-    my @row;
-    my $meaning_count = 0;
-    $meaning_count++ while ( @row = $sth->fetchrow_array );
-    $sth->execute;
-    if ( $meaning_count != 0 ) {
-	if(defined($meanings_required)) {
-	    while ( @row = $sth->fetchrow_array and ($meanings_required != 0)) {
-		$meanings_required--;
-		print_part_of_speech_and_meaning(@row[1,2]);
-	    }
-	    print "$word has $meaning_count meanings\n";
-	    return 1;
-	}
-	else {
-	    while ( @row = $sth->fetchrow_array) {
-		print_part_of_speech_and_meaning(@row[1,2]);		
-	    }
-	    print "$word has $meaning_count meanings\n";
-	    return 1;	
-	}
+    my $sth;
+
+# Search with the part of speech if defined or search for all meanings.
+
+    if ( defined($part_of_speech_option) ) {
+        $part_of_speech_option = ucfirst lc $part_of_speech_option;
+        my $query = "SELECT * from $char where word = ? and part = ? ";
+        $sth = $dbh->prepare($query);
+        $sth->execute( $word, $part_of_speech_option );
     }
     else {
-	print "No words found.\n";
+        my $query = "SELECT * from $char where word = ? ";
+        $sth = $dbh->prepare($query);
+        $sth->execute($word);
+    }
+
+# Push the part of speech and meaning into an array
+
+    my $meaning_count = 0;
+    my @meanings;
+    while ( my @row = $sth->fetchrow_array ) {
+        $meaning_count++;
+        my ( $part_of_speech, $meaning ) = @row[ 1, 2 ];
+        push @meanings, [ $part_of_speech, $meaning ];
+    }
+
+#Check for number of meanings found and also the number of meanings required
+
+    if ( $meaning_count != 0 ) {
+        if ( defined($meanings_required) ) {
+            while ( $meanings_required != 0 and @meanings ) {
+                $meanings_required--;
+                my ( $part_of_speech, $meaning ) = @{ shift @meanings };
+                print_part_of_speech_and_meaning( $part_of_speech, $meaning );
+            }
+        }
+        else {
+            while (@meanings) {
+                my ( $part_of_speech, $meaning ) = @{ shift @meanings };
+                print_part_of_speech_and_meaning( $part_of_speech, $meaning );
+            }
+        }
+    }
+    else {
+        if ( defined($part_of_speech_option) ) {
+            print "No meanings were found for $word as $part_of_speech_option \n";
+        }
+        else {
+            print "No words found \n";
+        }
     }
 }
 
-# If the -p switch is set then the word and meaning are displayed if they match the given part of speech.
+# Print the part_of_speech and meaning
+# print the word if the part of speech is option is set and matches the given one
 sub print_part_of_speech_and_meaning() {
-    my ($part_of_speech, $meaning) = @_;
-    if(defined($part_of_speech_option)){
-	if ($part_of_speech =~ /$part_of_speech_option/i){
-	    print_part_of_speech($part_of_speech);
-	    print_meaning($meaning);
-	}
+    my ( $part_of_speech, $meaning ) = @_;
+    if ( defined($part_of_speech_option) ) {
+        if ( $part_of_speech =~ /$part_of_speech_option/i ) {
+            print_part_of_speech($part_of_speech);
+            print_meaning($meaning);
+        }
     }
-    else{
-	print_part_of_speech($part_of_speech);
-	print_meaning($meaning);
+    else {
+        print_part_of_speech($part_of_speech);
+        print_meaning($meaning);
     }
 }
 
-# Print the part of speech in red color.
-sub print_part_of_speech{
+# Print the part of speech in red color if the color option is set
+sub print_part_of_speech {
     my $part_of_speech = shift @_;
-    print color('red');
+    print color('red') if $color_required;
     print "$part_of_speech \n";
 }
 
-# Print the meaning in the green color.
-sub print_meaning{
+# Print the meaning in green color if the color option is set
+sub print_meaning {
     my $meaning = shift @_;
-    print color('green');
-    print wrap("\t","\t","$meaning");
+    print color('green') if $color_required;
+    print wrap( "\t", "\t", "$meaning" );
     print "\n\n";
     print color('reset');
 }
 
-# Validate if its a word with its length and regex.
-sub check_word{
+# Check if the word has only letters and is defined
+sub check_word {
     my ($word) = @_;
-    return (defined $word and length($word) != 0 and $word=~/^[a-z]+$/i);
+    return ( defined $word and length($word) != 0 and $word =~ /^[a-z]+$/i );
 }
 
-# Check if the @ARGV contains the word or prompt for the word.
-if ( @ARGV) {
-    chomp(my $word = $ARGV[-1] );
+# Print the help text for help option
+pod2usage(1) if $help;
+pod2usage(-exitval => 0, -verbose => 2) if $man;
+
+# Check the part of speech switch and die if its invalid
+if ( defined($part_of_speech_option) ) {
+		my $part_of_speech_regex = qr/noun|verb|adjective|adverb|preposition|conjunction|pronoun|interjection/i;
+    die "Unknown part of speech option\n" unless $part_of_speech_option =~ $part_of_speech_regex;
+}
+
+# @ARGV contains the invalid switches and options in addition to the word. 
+# If its more than one then print the unknown option error and die.
+if ( @ARGV > 1 ) {
+    die "Number of meanings should be a number\n" if $ARGV[0] =~ m/m/;
+    die "Unknown option $ARGV[0]\n";
+}
+
+# If word is passed as argument and valid then search the dictionary
+# Prompt for the word if not found
+if (@ARGV) {
+    chomp( my $word = $ARGV[-1] );
+		die "Please enter a valid word\n" unless defined $word;
     $word =~ s/^\s+|\s+$//gs;
-    if (check_word($word)) {
-	    dictionary($word);
+    if ( check_word($word) ) {
+        dictionary($word);
     }
     else {
-	    print "Please enter a valid word\n";
+        print "Please enter a valid word\n";
     }
 }
 else {
     print "Enter your word : \n";
-    my $word = <STDIN>;
-    chomp($word);
+		my $word = <STDIN>;
+		die "Please enter a valid word\n" unless defined $word;
+		chomp($word);
     $word =~ s/^\s+|\s+$//gs;
-    if (check_word($word)) {
-	    dictionary($word);
+    if ( check_word($word) ) {
+        dictionary($word);
     }
     else {
-	    print "\nPlease enter a valid word\n";
+        print "\nPlease enter a valid word\n";
     }
 }
+
+__END__
+
+=head1 NAME
+
+Wordzilla - A command line dictionary
+
+=head1 SYNOPSIS
+
+wordzilla [options] word
+
+		-help  print the help text
+		-c     print the meaning and part of speech in color
+		-p     takes the part of speech as the argument
+		-m     takes the number of meanings to be displayed as argument
+		-man   display the man page
+
+=head1 ACKNOWLEDGEMENTS
+
+Thanks to Wikitionary, Larry wall and SQLite.
+
+=head1 DEDICATION
+
+In dedication to my parents, friends and fond sister.
+
+=head1 COPYRIGHTS & LICENSE
+
+This software is copyright (c) 2014 by tir.karthi@gmail.com
+
+This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.
+
+The database is available under the Creative Commons license.
+
+=head1 AUTHOR
+
+Karthikeyan, L<tir.karthi@gmail.com>
+
+=head1 BUGS
+
+Please report any bugs at https://github.com/tirkarthi/Wordzilla-Perl
+
+=head1 SUPPORT 
+
+Support for installation and other issues at https://github.com/tirkarthi/Wordzilla-Perl
+
+Its also available as an Android app at Google Play Store by the name Wordzilla.
