@@ -1,7 +1,7 @@
 Wordzilla-Perl
 ==============
 
-Version v0.1 :
+Version v1.0 :
 
   Please read the Installation instructions carefully to install them. A single, ready-to-install package with dependencies included will be released soon.
 
@@ -51,31 +51,10 @@ Add the Perl script to $PATH:
   
         sudo cp Wordzilla /usr/local/bin
   
-How to use the app :
+wordzilla [options] word
 
-  If you have added the script to your path then execute the command as follows
-  
-        Wordzilla <your_word> <enter>
-  
-  Replace <your_word> with the word whose meaning is to be found and press enter.
-  
-  You can also enter the command as 'Wordzilla' without input. It asks the word as the input.
-  
-  It gives the part of speech followed by meaning. The entry for effective is as follows
-  
-        Wordzilla effective <enter>
-      
-        effective has 4 meanings.
-      
-        Adjective 
-        Having the power to produce a required effect or effects.
-      
-        View all meanings ( Y / N ) : 
-  
-  It shows the first meaning and asks you whether to show the later meanings if present. 
-  
-  If you press Y or y, it shows all the meanings.
-  
-  If you press N or n, it exits the app.
-  
-  You can also change the location of the database to search within the Perl script.
+		-help  print the help text
+		-c     print the meaning and part of speech in color
+		-p     takes the part of speech as the argument
+		-m     takes the number of meanings to be displayed as argument
+		-man   display the man page
